@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "WittyFix",
-  "version": "1.0",
-  "description": "Enhance your text with GPT-4 - make it better or add a touch of humor!",
+  "name": "WittyFix - AI Text Enhancer",
+  "version": "1.0.0",
+  "description": "Enhance your writing with AI! Improve text quality or add humor using GPT-4. Perfect for emails and social media.",
   "permissions": [
     "activeTab",
     "storage",
@@ -22,12 +22,43 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["queries.js", "content.js"],
+      "type": "module"
     }
   ],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "commands": {
+    "enhance-text": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
+      },
+      "description": "Enhance selected text"
+    },
+    "add-humor": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H",
+        "mac": "Command+Shift+H"
+      },
+      "description": "Add humor to selected text"
+    }
+  },
+  "author": "vishnuprathish",
+  "homepage_url": "https://github.com/vishnuprathish/WittyFix",
+  "short_name": "WittyFix",
+  "keywords": [
+    "text enhancement",
+    "AI writing",
+    "GPT-4",
+    "humor",
+    "writing assistant",
+    "content improvement",
+    "text editor",
+    "OpenAI",
+    "productivity"
+  ]
 }

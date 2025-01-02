@@ -1,70 +1,56 @@
-async function getSelectedText() {
-  return window.getSelection().toString().trim();
+import { makeGPTRequest } from './queries.js';
+
+// Function to get selected text
+function getSelectedText() {
+    return window.getSelection().toString().trim();
 }
 
-async function callOpenAI(prompt, apiKey) {
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 150
-      })
-    });
-
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
-  } catch (error) {
-    console.error('Error calling OpenAI:', error);
-    return null;
-  }
+// Function to replace selected text
+function replaceSelectedText(newText) {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(newText));
+    }
 }
 
-async function replaceSelectedText(newText) {
-  const selection = window.getSelection();
-  if (!selection.rangeCount) return;
+// Process the text based on action type
+async function processText(action) {
+    const selectedText = getSelectedText();
+    if (!selectedText) {
+        alert('Please select some text first!');
+        return;
+    }
 
-  const range = selection.getRangeAt(0);
-  range.deleteContents();
-  range.insertNode(document.createTextNode(newText));
+    try {
+        // Get API key from storage
+        const { apiKey } = await chrome.storage.sync.get(['apiKey']);
+        if (!apiKey) {
+            alert('Please set your OpenAI API key in the extension settings.');
+            return;
+        }
+
+        // Show loading state
+        const originalText = selectedText;
+        replaceSelectedText('Processing...');
+
+        // Make the API request
+        const queryType = action === 'enhance' ? 'enhance' : 'addHumor';
+        const enhancedText = await makeGPTRequest(queryType, originalText, apiKey);
+        
+        // Replace the text with the enhanced version
+        replaceSelectedText(enhancedText);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+        replaceSelectedText(selectedText);
+    }
 }
 
-chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
-  const selectedText = await getSelectedText();
-  if (!selectedText) {
-    alert('Please select some text first!');
-    return;
-  }
-
-  chrome.storage.sync.get(['apiKey'], async function(result) {
-    if (!result.apiKey) {
-      alert('Please enter your OpenAI API key in the extension popup!');
-      return;
+// Listen for messages from the background script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'enhance' || request.action === 'addJoke') {
+        processText(request.action);
     }
-
-    let prompt;
-    if (request.action === 'enhance') {
-      prompt = `Improve the following text while maintaining its original meaning and length: "${selectedText}"`;
-    } else if (request.action === 'addJoke') {
-      prompt = `Add a short, contextually relevant joke to the following text while maintaining its professional tone: "${selectedText}"`;
-    }
-
-    const response = await callOpenAI(prompt, result.apiKey);
-    if (response) {
-      await replaceSelectedText(response);
-    } else {
-      alert('Failed to process the text. Please try again.');
-    }
-  });
 });
