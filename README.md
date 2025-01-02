@@ -22,7 +22,7 @@
 ### Local Development
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/wittyfix.git
+   git clone https://github.com/vishnuprathish/wittyfix.git
    ```
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable "Developer mode" in the top right
@@ -83,4 +83,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-If you encounter any issues or have questions, please [open an issue](https://github.com/yourusername/wittyfix/issues) on GitHub.
+If you encounter any issues or have questions, please [open an issue](https://github.com/vishnuprathish/wittyfix/issues) on GitHub.
