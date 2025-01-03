@@ -10,6 +10,12 @@ chrome.runtime.onInstalled.addListener(function() {
     title: "Add Humor",
     contexts: ["selection"]
   });
+
+  chrome.contextMenus.create({
+    id: "checkGrammar",
+    title: "Check Grammar",
+    contexts: ["selection"]
+  });
 });
 
 // Handle context menu clicks
@@ -18,6 +24,8 @@ chrome.contextMenus.onClicked.addListener(function(info, tab) {
     chrome.tabs.sendMessage(tab.id, {action: "enhance"});
   } else if (info.menuItemId === "addJoke") {
     chrome.tabs.sendMessage(tab.id, {action: "addJoke"});
+  } else if (info.menuItemId === "checkGrammar") {
+    chrome.tabs.sendMessage(tab.id, {action: "checkGrammar"});
   }
 });
 
@@ -32,6 +40,9 @@ chrome.commands.onCommand.addListener(async (command) => {
       break;
     case 'add-humor':
       chrome.tabs.sendMessage(tab.id, {action: "addJoke"});
+      break;
+    case 'check-grammar':
+      chrome.tabs.sendMessage(tab.id, {action: "checkGrammar"});
       break;
   }
 });
