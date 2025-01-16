@@ -55,19 +55,26 @@ const QUERIES = {
       content: `You are a professional writing enhancement AI with expertise in clear, concise, and engaging communication.
 
 TASK:
-- Enhance the given text while preserving its core message and length
-- Maintain the original tone and context
-- Improve clarity, impact, and readability
+- Provide THREE different enhanced versions of the given text
+- Each version should have a slightly different style/approach while maintaining the core message
+- Number the versions 1, 2, and 3
+- Keep each version separated by a ||| delimiter
 
 CONSTRAINTS:
-- Keep the same approximate length
+- Keep each version similar in length to the original
 - Preserve key terminology and technical terms
 - Maintain the original format (paragraphs, lists, etc.)
-- Do not add new sections or headings
-- Ensure the enhanced text flows naturally`
+- Ensure each version flows naturally
+
+OUTPUT FORMAT:
+1. [First enhanced version]
+|||
+2. [Second enhanced version]
+|||
+3. [Third enhanced version]`
     }, {
       role: "user",
-      content: `Please enhance this text following the above guidelines: "${text}"`
+      content: `Please provide three enhanced versions of this text: "${text}"`
     }],
     temperature: 0.7,
     max_tokens: 2000
@@ -79,12 +86,28 @@ CONSTRAINTS:
       content: `You are a sophisticated AI with expertise in adding contextually appropriate humor to professional writing.
 
 TASK:
-- Add subtle, contextually relevant humor to the text
-- Maintain the text's professional tone and credibility
-- Ensure humor enhances rather than distracts from the message`
+- Provide THREE different humorous versions of the given text
+- Each version should have a different style of humor while maintaining professionalism
+- Version 1: Subtle and witty
+- Version 2: More playful and casual
+- Version 3: Clever wordplay and puns
+- Number the versions 1, 2, and 3
+- Keep each version separated by a ||| delimiter
+
+CONSTRAINTS:
+- Keep humor workplace-appropriate
+- Maintain the text's core message
+- Ensure humor enhances rather than overshadows the content
+
+OUTPUT FORMAT:
+1. [Subtle, witty version]
+|||
+2. [Playful, casual version]
+|||
+3. [Clever wordplay version]`
     }, {
       role: "user",
-      content: `Please add appropriate humor to this text: "${text}"`
+      content: `Please provide three humorous versions of this text: "${text}"`
     }],
     temperature: 0.8,
     max_tokens: 2000
@@ -93,10 +116,33 @@ TASK:
   checkGrammar: (text) => ({
     messages: [{
       role: "system",
-      content: "You are a professional editor focusing on grammar, spelling, and style improvements."
+      content: `You are a professional editor focusing on grammar, spelling, and style improvements.
+
+TASK:
+- Provide THREE different corrected versions of the text
+- Version 1: Basic grammar and spelling corrections only
+- Version 2: Improved clarity and conciseness
+- Version 3: Enhanced formal/professional style
+- Number the versions 1, 2, and 3
+- Keep each version separated by a ||| delimiter
+- Return ONLY the corrected versions without any explanations
+
+EXAMPLE INPUT: "i dont know weather it will rain today"
+EXAMPLE OUTPUT:
+1. I don't know whether it will rain today
+|||
+2. I'm unsure whether it will rain today
+|||
+3. I am uncertain about today's rainfall probability
+
+CONSTRAINTS:
+- Preserve the original meaning
+- Only make necessary corrections in Version 1
+- Gradually increase refinement in Versions 2 and 3
+- No explanatory text or meta-commentary`
     }, {
       role: "user",
-      content: `Please check and correct any grammar or spelling issues in this text: "${text}"`
+      content: `${text}`
     }],
     temperature: 0.3,
     max_tokens: 2000
@@ -123,7 +169,8 @@ async function makeGPTRequest(queryType, text, apiKey) {
   }
 
   const data = await response.json();
-  return data.choices[0].message.content.trim();
+  const suggestions = data.choices[0].message.content.trim().split('|||').map(s => s.trim());
+  return suggestions;
 }
 
 // Handle messages from content script

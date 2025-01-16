@@ -194,7 +194,7 @@ OUTPUT STYLE:
     }
 
     // Create and show suggestion tooltip
-    function showSuggestionTooltip(originalText, enhancedText, position) {
+    function showSuggestionTooltip(originalText, suggestions, position) {
         // Remove any existing tooltips
         const existingTooltip = document.getElementById('wittyfix-tooltip');
         if (existingTooltip) {
@@ -212,7 +212,7 @@ OUTPUT STYLE:
             border-radius: 8px;
             padding: 12px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            max-width: 300px;
+            max-width: 400px;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 14px;
             line-height: 1.4;
@@ -221,32 +221,38 @@ OUTPUT STYLE:
         // Add suggestion content
         const content = document.createElement('div');
         content.innerHTML = `
-            <div style="margin-bottom: 8px; color: #666;">Suggested Enhancement:</div>
-            <div style="margin-bottom: 12px;">${enhancedText}</div>
-            <div style="display: flex; gap: 8px;">
-                <button id="wittyfix-copy" style="
-                    background: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 6px 12px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 13px;
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
+            <div style="margin-bottom: 12px; color: #666;">Choose a suggestion:</div>
+            ${suggestions.map((suggestion, index) => `
+                <div style="
+                    margin-bottom: 16px;
+                    padding: 12px;
+                    background: ${index === 0 ? '#f8f9fa' : index === 1 ? '#f3f4f6' : '#eef1f5'};
+                    border-radius: 6px;
                 ">
-                    Copy Text
-                </button>
-                <button id="wittyfix-close" style="
-                    background: #f5f5f5;
-                    border: 1px solid #ddd;
-                    padding: 6px 12px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 13px;
-                ">Close</button>
-            </div>
+                    <div style="margin-bottom: 8px;">${suggestion}</div>
+                    <button class="wittyfix-copy" data-text="${suggestion.replace(/"/g, '&quot;')}" style="
+                        background: #4CAF50;
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    ">Copy</button>
+                </div>
+            `).join('')}
+            <button id="wittyfix-close" style="
+                background: #f5f5f5;
+                border: 1px solid #ddd;
+                padding: 6px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 13px;
+                margin-top: 8px;
+            ">Close</button>
             <div id="wittyfix-copy-feedback" style="
                 color: #4CAF50;
                 font-size: 12px;
@@ -263,19 +269,21 @@ OUTPUT STYLE:
         // Add to document
         document.body.appendChild(tooltip);
 
-        // Add event listeners
-        document.getElementById('wittyfix-copy').addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(enhancedText);
-                const feedback = document.getElementById('wittyfix-copy-feedback');
-                feedback.style.display = 'block';
-                setTimeout(() => {
-                    feedback.style.display = 'none';
-                }, 2000);
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                alert('Failed to copy text to clipboard');
-            }
+        // Add event listeners for copy buttons
+        tooltip.querySelectorAll('.wittyfix-copy').forEach(button => {
+            button.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(button.dataset.text);
+                    const feedback = document.getElementById('wittyfix-copy-feedback');
+                    feedback.style.display = 'block';
+                    setTimeout(() => {
+                        feedback.style.display = 'none';
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy text:', err);
+                    alert('Failed to copy text to clipboard');
+                }
+            });
         });
 
         document.getElementById('wittyfix-close').addEventListener('click', () => {
@@ -316,7 +324,7 @@ OUTPUT STYLE:
                 box-shadow: 0 2px 5px rgba(0,0,0,0.1);
                 z-index: 10000;
             `;
-            loadingTooltip.textContent = 'Enhancing text...';
+            loadingTooltip.textContent = 'Generating suggestions...';
             document.body.appendChild(loadingTooltip);
 
             // Process text using background script
