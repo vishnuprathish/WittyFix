@@ -120,35 +120,6 @@ OUTPUT STYLE:
         })
     };
 
-    // Function to make API calls to OpenAI
-    async function makeGPTRequest(queryType, text, apiKey) {
-        const query = QUERIES[queryType](text);
-        
-        try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-4",
-                    ...query
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data.choices[0].message.content.trim();
-        } catch (error) {
-            console.error('Error:', error);
-            throw error;
-        }
-    }
-
     // Function to get selected text
     function getSelectedText() {
         return window.getSelection().toString().trim();
@@ -157,45 +128,231 @@ OUTPUT STYLE:
     // Function to replace selected text
     function replaceSelectedText(newText) {
         const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            range.insertNode(document.createTextNode(newText));
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const selectedElement = range.startContainer.parentElement;
+
+        // Special handling for Gmail compose
+        const isGmail = window.location.hostname === 'mail.google.com';
+        if (isGmail && selectedElement.closest('.Am.Al.editable')) {
+            // Gmail compose editor
+            const editor = selectedElement.closest('.Am.Al.editable');
+            
+            // Create a temporary element to sanitize the text
+            const tempDiv = document.createElement('div');
+            tempDiv.textContent = newText;
+            
+            // Replace the text
+            document.execCommand('insertText', false, tempDiv.textContent);
+            return;
         }
+        
+        // Handle different types of editable elements
+        if (selectedElement.closest('input, textarea')) {
+            // Handle input/textarea elements
+            const input = selectedElement.closest('input, textarea');
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const currentValue = input.value;
+            
+            input.value = currentValue.substring(0, start) + 
+                         newText + 
+                         currentValue.substring(end);
+            
+            // Restore selection
+            input.setSelectionRange(start + newText.length, start + newText.length);
+            input.focus();
+        } else if (selectedElement.closest('[contenteditable="true"]')) {
+            // Handle contenteditable elements
+            try {
+                document.execCommand('insertText', false, newText);
+            } catch (error) {
+                console.error('Error using execCommand:', error);
+                // Fallback method
+                range.deleteContents();
+                const textNode = document.createTextNode(newText);
+                range.insertNode(textNode);
+                
+                // Restore selection
+                range.setStartAfter(textNode);
+                range.setEndAfter(textNode);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        } else {
+            // Handle regular text nodes
+            try {
+                document.execCommand('insertText', false, newText);
+            } catch (error) {
+                console.error('Error replacing text:', error);
+                // Fallback method
+                range.deleteContents();
+                range.insertNode(document.createTextNode(newText));
+            }
+        }
+    }
+
+    // Create and show suggestion tooltip
+    function showSuggestionTooltip(originalText, enhancedText, position) {
+        // Remove any existing tooltips
+        const existingTooltip = document.getElementById('wittyfix-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+
+        // Create tooltip container
+        const tooltip = document.createElement('div');
+        tooltip.id = 'wittyfix-tooltip';
+        tooltip.style.cssText = `
+            position: fixed;
+            z-index: 10000;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 300px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+        `;
+
+        // Add suggestion content
+        const content = document.createElement('div');
+        content.innerHTML = `
+            <div style="margin-bottom: 8px; color: #666;">Suggested Enhancement:</div>
+            <div style="margin-bottom: 12px;">${enhancedText}</div>
+            <div style="display: flex; gap: 8px;">
+                <button id="wittyfix-copy" style="
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                ">
+                    Copy Text
+                </button>
+                <button id="wittyfix-close" style="
+                    background: #f5f5f5;
+                    border: 1px solid #ddd;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 13px;
+                ">Close</button>
+            </div>
+            <div id="wittyfix-copy-feedback" style="
+                color: #4CAF50;
+                font-size: 12px;
+                margin-top: 8px;
+                display: none;
+            ">Copied to clipboard!</div>
+        `;
+        tooltip.appendChild(content);
+
+        // Position tooltip near the selected text
+        tooltip.style.left = `${position.x}px`;
+        tooltip.style.top = `${position.y + 20}px`;
+
+        // Add to document
+        document.body.appendChild(tooltip);
+
+        // Add event listeners
+        document.getElementById('wittyfix-copy').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(enhancedText);
+                const feedback = document.getElementById('wittyfix-copy-feedback');
+                feedback.style.display = 'block';
+                setTimeout(() => {
+                    feedback.style.display = 'none';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+                alert('Failed to copy text to clipboard');
+            }
+        });
+
+        document.getElementById('wittyfix-close').addEventListener('click', () => {
+            tooltip.remove();
+        });
+
+        // Close tooltip when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!tooltip.contains(e.target) && e.target.id !== 'wittyfix-tooltip') {
+                tooltip.remove();
+            }
+        });
     }
 
     // Process the text based on action type
     async function processText(action) {
-        const selectedText = getSelectedText();
-        if (!selectedText) {
-            alert('Please select some text first!');
-            return;
-        }
-
         try {
-            // Get API key from storage
-            const { apiKey } = await chrome.storage.sync.get(['apiKey']);
-            if (!apiKey) {
-                alert('Please set your OpenAI API key in the extension settings.');
+            const selectedText = getSelectedText();
+            if (!selectedText) {
+                alert('Please select some text first');
                 return;
             }
 
-            // Show loading state
-            const originalText = selectedText;
-            replaceSelectedText('Processing...');
+            const selection = window.getSelection();
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
 
-            // Make the API request
-            const queryType = action === 'enhance' ? 'enhance' : 
-                            action === 'addJoke' ? 'addHumor' : 
-                            'checkGrammar';
-            const enhancedText = await makeGPTRequest(queryType, originalText, apiKey);
-            
-            // Replace the text with the enhanced version
-            replaceSelectedText(enhancedText);
+            // Show loading indicator
+            const loadingTooltip = document.createElement('div');
+            loadingTooltip.id = 'wittyfix-loading';
+            loadingTooltip.style.cssText = `
+                position: fixed;
+                left: ${rect.left}px;
+                top: ${rect.bottom + 10}px;
+                background: white;
+                padding: 8px;
+                border-radius: 4px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                z-index: 10000;
+            `;
+            loadingTooltip.textContent = 'Enhancing text...';
+            document.body.appendChild(loadingTooltip);
+
+            // Process text using background script
+            const response = await new Promise((resolve) => {
+                chrome.runtime.sendMessage({
+                    action: 'processText',
+                    queryType: action === 'enhance' ? 'enhance' :
+                              action === 'addJoke' ? 'addHumor' :
+                              'checkGrammar',
+                    text: selectedText
+                }, (response) => {
+                    resolve(response);
+                });
+            });
+
+            loadingTooltip.remove();
+
+            if (response.error) {
+                alert(response.error);
+                return;
+            }
+
+            if (response.success && response.enhancedText) {
+                showSuggestionTooltip(
+                    selectedText,
+                    response.enhancedText,
+                    { x: rect.left + window.scrollX, y: rect.bottom + window.scrollY }
+                );
+            }
         } catch (error) {
-            console.error('Error:', error);
-            alert('An error occurred. Please try again.');
-            replaceSelectedText(selectedText);
+            console.error('Error processing text:', error);
+            alert('An error occurred while processing the text');
+            const loadingTooltip = document.getElementById('wittyfix-loading');
+            if (loadingTooltip) {
+                loadingTooltip.remove();
+            }
         }
     }
 
@@ -207,11 +364,18 @@ OUTPUT STYLE:
         }
         
         if (request.action === 'enhance' || request.action === 'addJoke' || request.action === 'checkGrammar') {
-            processText(request.action);
-            // Send response to confirm receipt
-            sendResponse({status: 'processing'});
+            // Handle async processText using Promise
+            (async () => {
+                try {
+                    await processText(request.action);
+                    sendResponse({status: 'completed'});
+                } catch (error) {
+                    console.error('Error in message listener:', error);
+                    sendResponse({status: 'error', message: error.message});
+                }
+            })();
+            return true; // Will respond asynchronously
         }
-        // Return true to indicate we'll send a response asynchronously
-        return true;
+        return false; // No response needed for other messages
     });
 }
